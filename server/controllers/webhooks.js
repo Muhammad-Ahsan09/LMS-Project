@@ -22,7 +22,7 @@ export const clerkWebhooks = async (req, res) => {
                     id: data.id,
                     email: data.email_addresses[0].email_address,
                     name: data.first_name + " " + data.last_name,
-                    imageUrl: data.imageUrl
+                    imageUrl: data.image_url
                 }
 
                 await pool.query(`INSERT INTO users (email, name, imageurl)
@@ -36,7 +36,7 @@ export const clerkWebhooks = async (req, res) => {
                 const userData = {
                     email: data.email_addresses[0].email_address,
                     name: data.first_name + " " + data.last_name,
-                    imageUrl: data.imageUrl
+                    imageUrl: data.image_url
                 }
 
                 await pool.query('UPDATE users SET email = $1, name = $1, imageurl = $1 WHERE id = $4;', [data.id])
