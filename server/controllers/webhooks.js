@@ -24,7 +24,7 @@ export const clerkWebhooks = async (req, res) => {
                     imageUrl: data.imageUrl
                 }
 
-                await pool.query(`INSERT INTO users (email, name, imageUrl)
+                await pool.query(`INSERT INTO users (email, name, imageurl)
                  VALUES ($1, $2, $3 )`, [userData.email, userData.name, userData.imageUrl])
                 
                  res.json({})
@@ -38,7 +38,7 @@ export const clerkWebhooks = async (req, res) => {
                     imageUrl: data.imageUrl
                 }
 
-                await pool.query("UPDATE users SET email = $1, name = $1, imageUrl = $1 WHERE id = $4;", [data.id])
+                await pool.query('UPDATE users SET email = $1, name = $1, imageurl = $1 WHERE id = $4;', [data.id])
 
                 res.json({})
                 break
