@@ -31,6 +31,5 @@ const PORT = process.env.PORT || 8000
 
 app.listen(PORT, async () => {
     console.log(`Server started on port ${PORT}`)
-    await pool.query("INSERT INTO users(name, email, imageUrl) VALUES ('user2', 'user2@email.com','Thisisurl' )")
 
 })
