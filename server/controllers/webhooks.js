@@ -25,7 +25,7 @@ export const clerkWebhooks = async (req, res) => {
                     imageUrl: data.image_url
                 }
 
-                await pool.query(`INSERT INTO users (email, name, imageurl)
+                await pool.query(`INSERT INTO users (id, email, name, imageurl)
                  VALUES ($1, $2, $3, $4 )`, [userData.id, userData.email, userData.name, userData.imageUrl])
                 
                  res.json({})
