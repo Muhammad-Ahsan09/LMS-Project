@@ -26,7 +26,7 @@ export const clerkWebhooks = async (req, res) => {
                 }
 
                 await pool.query(`INSERT INTO users (email, name, imageurl)
-                 VALUES ($1, $2, $3 )`, [userData.email, userData.name, userData.imageUrl])
+                 VALUES ($1, $2, $3, $4 )`, [userData.id, userData.email, userData.name, userData.imageUrl])
                 
                  res.json({})
                  break
