@@ -99,7 +99,7 @@ export const stripeWebhooks = async (req, res) => {
                 result = await pool.query(`SELECT * FROM courses WHERE id = $1`, [purchaseData.courseId])
                 const courseData = result.rows[0]
 
-                await pool.query(`INSER INTO is_enrolled_in (user_id, course_id) VALUES ($1, $2);`, [userData.id, courseData.id])
+                await pool.query(`INSERT INTO is_enrolled_in (user_id, course_id) VALUES ($1, $2);`, [userData.id, courseData.id])
 
                 await pool.query(`UPDATE purchases SET status = $1 WHERE id = $2;`, ["completed", purchaseId])
 
