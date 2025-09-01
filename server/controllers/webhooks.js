@@ -91,6 +91,8 @@ export const stripeWebhooks = async (req, res) => {
 
                 const purchaseData = result.rows[0]
 
+                console.log("in success block")
+
                 result = await pool.query(`SELECT * FROM users WHERE id = $1`, [purchaseData.userId])
                 const userData = result.rows[0]
 
@@ -99,13 +101,18 @@ export const stripeWebhooks = async (req, res) => {
 
                 await pool.query(`INSER INTO is_enrolled_in (user_id, course_id) VALUES ($1, $2);`, [userData.id, courseData.id])
 
-                await pool.query(`UPDATE purchases SET status = "completed" WHERE id = $1;`, [purchaseId])
+                await pool.query(`UPDATE purchases SET status = $1 WHERE id = $2;`, ["completed", purchaseId])
 
+                result = await pool.query(`SELECT * FROM purchases WHERE id = $1`, [purchaseId])
 
+                console.log("purchase:", result.rows)
                 break
             }
 
             case "payment_intent.payment_failed": {
+
+                console.log("payment failed")
+
                 const paymentIntent = event.data.object;
                 const paymentIntentId = paymentIntent.id
 
