@@ -1,5 +1,9 @@
 import { Webhook } from "svix";
 import pool from "../database.js";
+import Stripe from "stripe";
+import dotenv from "dotenv"
+
+dotenv.config()
 
 // API CONTROLLER FUNCTION TO MANAGE CLERK USER WITH DATABASE
 
@@ -60,4 +64,70 @@ export const clerkWebhooks = async (req, res) => {
         res.json({success: false, message: error.message})
 
     }
+}
+
+
+const stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY)
+
+export const stripeWebhooks = async (req, res) => {
+    const sig = req.headers['stripe-signature']
+    let event;
+
+    try {
+
+        event = Stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET)
+
+        switch(event.type) {
+            case "payment_intent.succeeded": {
+                const paymentIntent = event.data.object;
+                const paymentIntentId = paymentIntent.id
+
+                const session = await stripeInstance.checkout.sessions.list({
+                    payment_intent: paymentIntentId
+                })
+
+                const {purchaseId} = session.data[0].metadata
+                let result = await pool.query(`SELECT * FROM purchases WHERE id = $1;`,[purchaseId])
+
+                const purchaseData = result.rows[0]
+
+                result = await pool.query(`SELECT * FROM users WHERE id = $1`, [purchaseData.userId])
+                const userData = result.rows[0]
+
+                result = await pool.query(`SELECT * FROM courses WHERE id = $1`, [purchaseData.courseId])
+                const courseData = result.rows[0]
+
+                await pool.query(`INSER INTO is_enrolled_in (user_id, course_id) VALUES ($1, $2);`, [userData.id, courseData.id])
+
+                await pool.query(`UPDATE purchases SET status = "completed" WHERE id = $1;`, [purchaseId])
+
+
+                break
+            }
+
+            case "payment_intent.payment_failed": {
+                const paymentIntent = event.data.object;
+                const paymentIntentId = paymentIntent.id
+
+                const session = await stripeInstance.checkout.sessions.list({
+                    payment_intent: paymentIntentId
+                })
+
+                const {purchaseId} = session.data[0].metadata;
+                const purchaseData = await pool.query(`UPDATE purchases SET status = "failed" WHERE id = $1;`, [purchaseId]) 
+
+                break
+            }
+
+            default:
+                console.log(`Unhandled event type ${event.type}`)
+            
+        }
+        res.json({recieved: true })
+
+    } catch (error) {
+        console.log(error.message)
+    }
+
+    
 }

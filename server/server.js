@@ -1,29 +1,32 @@
 import express from "express"
 import cors from "cors"
-import { clerkWebhooks } from "./controllers/webhooks.js"
-import pool from "./database.js"
+import { clerkWebhooks, stripeWebhooks } from "./controllers/webhooks.js"
+import educatorRouter from "./routes/educator-routes.js"
+import { clerkMiddleware } from "@clerk/express"
+import connectCloudinary from "./configs/cloudinary.js"
+import courseRouter from "./routes/course-routes.js"
+import userRouter from "./routes/user-routes.js"
 
 
 // Initialize Express
 
 const app = express()
 
+// Connect cloudinary
+await connectCloudinary()
+
 // Middlewares
 app.use(cors())
+app.use(express.json())
+app.use(clerkMiddleware())
 
 // Routes
-app.get("/", (req, res) => {
-    try {
-        res.send("API Working")
-    } catch (error) {
-        
-    }
-    
-})
-
-
-
-app.post("/clerk", express.json(), clerkWebhooks)
+app.get("/", (req, res) => { try { res.send("API Working") } catch (error) { }})
+app.post("/clerk", clerkWebhooks)
+app.use("/api/educator", educatorRouter)
+app.use("/api/course", courseRouter)
+app.use("/api/user", userRouter)
+app.post("/stripe", express.raw({type: "application/json"}), stripeWebhooks)
 
 
 
