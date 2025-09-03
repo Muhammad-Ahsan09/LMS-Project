@@ -134,3 +134,93 @@ export const purchaseCourse = async (req, res) => {
         res.json({succes: false, message:error.message})
     }
 }
+
+export const updateUserCourseProgress = async (req, res) => {
+    try {
+        const userId = req.auth().userId
+        const {courseId, lectureId} = req.body
+
+        let result = await pool.query(`SELECT * FROM is_enrolled_in WHERE user_id = $1 AND course_id = $1;`, [userId, courseId])
+
+        const progressData = result.rows[0]
+        if(progressData) {
+            if(progressData.lectureCompleted.includes(lectureId)) {
+                return res.json({succes: true, message: 'Lecture Already Completed'})
+            }
+
+            await pool.query(`UPDATE is_enrolled_in SET "lectureCompleted" = ARRAY_APPEND("lectureCompleted", $1)
+            WHERE user_id = $2 AND course_id = $3
+            `, [lectureId, userId, courseId])
+        }
+
+        res.json({succes: true, message: "Progress updated"})
+    } catch (error) {
+        console.log(error)
+        res.json({succes: false, message:error.message})
+    }
+} 
+
+
+export const getUserCourseProgress = async (req, res) => {
+    try {
+        const userId = req.auth().userId
+        const {courseId} = req.body
+        const result = await pool.query(`SELECT * FROM is_enrolled_in WHERE user_id = $1 AND course_id = $2;`,
+        [userId, courseId])
+
+        const progress = result.rows[0]
+
+        res.json({succes: true, progress})
+
+
+
+    } catch (error) {
+        console.log(error)
+        res.json({succes: false, message:error.message})
+    }
+}
+
+
+// Add user rating to course
+
+export const addUserRating = async (req, res) => {
+    try {
+        const userId = req.auth().userId
+        const {courseId, rating} = req.body;
+
+        if(!courseId || !userId || !rating || rating < 1 || rating > 5) {
+            return res.json({success: false, message: "invalid details"})
+        }
+
+        const result = await pool.query("SELECT * FROM courses WHERE id = $1", [courseId])
+        const course = result.rows[0]
+
+        if(!course) {
+            return res.json({success: false, message: "Course not found"})
+        }
+
+        result = await pool.query(`SELECT * FROM users WHERE id = $1`, [userId])
+        const user = result.rows[0]
+
+        result = await pool.query(`SELECT * FROM is_enrolled_in WHERE user_id = $1 AND course_id = $2;`, [userId, courseId])
+
+        if(!user || result.rows.length === 0) {
+            res.json({succes: false, message: "User is not enrolled in course"})
+        }
+
+        result = await pool.query(`SELECT * FROM courses_ratings WHERE course_id = $1 AND user_id = $2;`, [courseId, userId])
+
+        const existingRating = result.rows[0];
+
+        if(existingRating) {
+            await pool.query(`UPDATE courses_ratings SET rating = $1 WHERE coruse_id = $2 AND user_id = $3;`, [rating, courseId, userId])
+        } else {
+            await pool.query(`INSERT INTO course_ratings (course_id, user_id, rating) VALUES ($1, $2, $3);`, [courseId, userId, rating])
+        }
+
+        return res.json({succes: true, message: "rating added"})
+    } catch (error) {
+        console.log(error)
+        res.json({succes: false, message:error.message})
+    }
+}
