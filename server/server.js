@@ -16,9 +16,7 @@ const app = express()
 await connectCloudinary()
 
 // Middlewares
-app.use(cors({
-    origin: "https://lms-frontend-liard-one.vercel.app"
-}))
+app.use(cors())
 app.use(clerkMiddleware())
 
 // Routes
