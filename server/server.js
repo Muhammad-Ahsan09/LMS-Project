@@ -17,7 +17,7 @@ await connectCloudinary()
 
 // Middlewares
 app.use(cors({
-    origin: "https://lms-project-gilt-kappa.vercel.app"
+    origin: "https://lms-frontend-liard-one.vercel.app"
 }))
 app.use(clerkMiddleware())
 
