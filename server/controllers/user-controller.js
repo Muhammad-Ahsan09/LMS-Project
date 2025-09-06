@@ -33,7 +33,7 @@ export const getUserData = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.json({succes: false, message:error.message})
+        res.json({success: false, message:error.message})
     }
 }
 
@@ -41,23 +41,62 @@ export const getUserData = async (req, res) => {
 export const userEnrolledCourses = async (req, res) => {
     try {
         const userId = req.auth().userId
-        const result = await pool.query(`
+        let result = await pool.query(`
         SELECT * FROM is_enrolled_in
         JOIN users ON users.id = is_enrolled_in.user_id
         JOIN courses ON is_enrolled_in.course_id = courses.id
         WHERE user_id = $1
         `, [userId])
 
-        console.log(result)
 
         const userData = result.rows
-        console.log(userData)
 
-        res.json({succes: true, enrolledCourses: userData})
+        const course_ids = userData.map((course) => course.course_id)
+
+        result = await pool.query(`SELECT * FROM chapters WHERE course_id =ANY($1);`, [course_ids])
+        const chapters = result.rows
+
+        const chapter_ids = chapters.map((chapter) => chapter.chapterId)
+
+        result = await pool.query(`SELECT * FROM lectures WHERE chapter_id = ANY($1);`, [chapter_ids])
+        const lectures = result.rows
+
+        result = await pool.query(`SELECT * FROM courses_ratings WHERE course_id = ANY($1)`, [course_ids])
+        let ratings = result.rows
+
+        userData.forEach(course => {
+            course.courseContent = []
+            course.courseRatings = []
+
+            chapters.forEach(chapter => {
+                if(chapter.course_id === course.id) {
+                    course.courseContent.push(chapter)
+                }
+            })
+
+            lectures.forEach(lecture => {
+                course.courseContent.forEach(chapter => {
+                    chapter.chapterContent = []
+                    if(lecture.chapter_id === chapter.chapterId) {
+                        chapter.chapterContent.push(lecture)
+                    }
+                })
+            })
+
+            ratings.forEach(rating => {
+                if(rating.course_id === course.id) {
+                    course.courseRatings.push(rating)
+                    const index = ratings.indexOf(rating)
+                    ratings.splice(index)
+                }
+            })
+        })
+
+        res.json({success: true, enrolledCourses: userData})
 
     } catch (error) {
         console.log(error)
-        res.json({succes: false, message:error.message})
+        res.json({success: false, message:error.message})
     }
 }
 
@@ -80,7 +119,7 @@ export const purchaseCourse = async (req, res) => {
         const courseData = result.rows[0]
 
         if(!userData || !courseData) {
-            return res.json({succes: false, error: "Data not found"})
+            return res.json({success: false, error: "Data not found"})
         }
 
         const purchaseData = {
@@ -89,9 +128,7 @@ export const purchaseCourse = async (req, res) => {
             amount: (courseData.coursePrice - courseData.discount * courseData.coursePrice / 100).toFixed(2),
         }
 
-        console.log(courseData.coursePrice )
 
-        console.log("amount:", purchaseData.amount)
 
         result = await pool.query(`
         INSERT INTO purchases("courseId", "userId", "amount")
@@ -99,8 +136,6 @@ export const purchaseCourse = async (req, res) => {
         `, [courseId, userId, Number(purchaseData.amount)])
 
         const newPurchase = result.rows[0]
-        console.log(newPurchase)
-
         // Stripe gateway initialize
 
         const stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -128,10 +163,10 @@ export const purchaseCourse = async (req, res) => {
             }
         })
 
-        res.json({succes: true, session_url:session.url})
+        res.json({success: true, session_url:session.url})
     } catch (error) {
         console.log(error)
-        res.json({succes: false, message:error.message})
+        res.json({success: false, message:error.message})
     }
 }
 
@@ -140,23 +175,39 @@ export const updateUserCourseProgress = async (req, res) => {
         const userId = req.auth().userId
         const {courseId, lectureId} = req.body
 
-        let result = await pool.query(`SELECT * FROM is_enrolled_in WHERE user_id = $1 AND course_id = $1;`, [userId, courseId])
+        // lectureId = lectureId.toString()
+        
 
-        const progressData = result.rows[0]
+        let result = await pool.query(`SELECT * FROM is_enrolled_in WHERE user_id = $1 AND course_id = $2;`, [userId, courseId])
+
+        // console.log("Lecture Completed:", result)
+        const progressData = result.rows[0] 
         if(progressData) {
-            if(progressData.lectureCompleted.includes(lectureId)) {
-                return res.json({succes: true, message: 'Lecture Already Completed'})
+            console.log("Here in progress data")
+            if(progressData.lectureCompleted) {
+                
+                if(progressData.lectureCompleted.includes(lectureId)) {
+                    return res.json({success: true, message: 'Lecture Already Completed'})
+                }
+                await pool.query(`UPDATE is_enrolled_in SET "lectureCompleted" = ARRAY_APPEND("lectureCompleted", $1)
+                WHERE user_id = $2 AND course_id = $3;
+                `, [lectureId, userId, courseId])
             }
 
-            await pool.query(`UPDATE is_enrolled_in SET "lectureCompleted" = ARRAY_APPEND("lectureCompleted", $1)
-            WHERE user_id = $2 AND course_id = $3
-            `, [lectureId, userId, courseId])
+            else {
+                await pool.query(`UPDATE is_enrolled_in SET "lectureCompleted" = ARRAY_APPEND("lectureCompleted", $1)
+                WHERE user_id = $2 AND course_id = $3;
+                `, [lectureId, userId, courseId])
+            }
+            
+            
+           
         }
 
-        res.json({succes: true, message: "Progress updated"})
+        res.json({success: true, message: "Progress updated"})
     } catch (error) {
         console.log(error)
-        res.json({succes: false, message:error.message})
+        res.json({success: false, message:error.message})
     }
 } 
 
@@ -170,13 +221,15 @@ export const getUserCourseProgress = async (req, res) => {
 
         const progress = result.rows[0]
 
-        res.json({succes: true, progress})
+        // console.log(progress)
+
+        res.json({success: true, progress})
 
 
 
     } catch (error) {
         console.log(error)
-        res.json({succes: false, message:error.message})
+        res.json({success: false, message:error.message})
     }
 }
 
@@ -192,7 +245,7 @@ export const addUserRating = async (req, res) => {
             return res.json({success: false, message: "invalid details"})
         }
 
-        const result = await pool.query("SELECT * FROM courses WHERE id = $1", [courseId])
+        let result = await pool.query("SELECT * FROM courses WHERE id = $1", [courseId])
         const course = result.rows[0]
 
         if(!course) {
@@ -205,7 +258,7 @@ export const addUserRating = async (req, res) => {
         result = await pool.query(`SELECT * FROM is_enrolled_in WHERE user_id = $1 AND course_id = $2;`, [userId, courseId])
 
         if(!user || result.rows.length === 0) {
-            res.json({succes: false, message: "User is not enrolled in course"})
+            res.json({success: false, message: "User is not enrolled in course"})
         }
 
         result = await pool.query(`SELECT * FROM courses_ratings WHERE course_id = $1 AND user_id = $2;`, [courseId, userId])
@@ -213,14 +266,14 @@ export const addUserRating = async (req, res) => {
         const existingRating = result.rows[0];
 
         if(existingRating) {
-            await pool.query(`UPDATE courses_ratings SET rating = $1 WHERE coruse_id = $2 AND user_id = $3;`, [rating, courseId, userId])
+            await pool.query(`UPDATE courses_ratings SET rating = $1 WHERE course_id = $2 AND user_id = $3;`, [rating, courseId, userId])
         } else {
-            await pool.query(`INSERT INTO course_ratings (course_id, user_id, rating) VALUES ($1, $2, $3);`, [courseId, userId, rating])
+            await pool.query(`INSERT INTO courses_ratings (course_id, user_id, rating) VALUES ($1, $2, $3);`, [courseId, userId, rating])
         }
 
-        return res.json({succes: true, message: "rating added"})
+        return res.json({success: true, message: "rating added"})
     } catch (error) {
         console.log(error)
-        res.json({succes: false, message:error.message})
+        res.json({success: false, message:error.message})
     }
 }

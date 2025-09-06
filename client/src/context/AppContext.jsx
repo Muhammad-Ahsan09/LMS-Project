@@ -2,22 +2,63 @@ import { createContext, useEffect, useState } from "react";
 import { dummyCourses } from "../assets/assets";
 import humanizeDuration from "humanize-duration";
 import {useAuth, useUser} from "@clerk/clerk-react"
+import axios from "axios"
+import { toast } from "react-toastify";
+
 
 export const AppContext = createContext()
 
 export const AppContextProvider = ({children}) => {
 
+    const backendUrl = import.meta.env.VITE_BACKEND_URL
     const currency = import.meta.env.VITE_CURRENCY
 
     const [allCourses, setAllCourses] = useState([])
-    const [isEducator, setIsEducator] = useState(true)
+    const [isEducator, setIsEducator] = useState(false)
     const [enrolledCourses, setEnrolledCourses] = useState([])
+    const [userData, setUserData] = useState(null)
 
     const {getToken} = useAuth()
     const {user} = useUser() 
 
     const fetchAllCourses = async () => {
-        setAllCourses(dummyCourses)
+        try {
+            const {data} = await axios.get(backendUrl + "/api/course/all");
+            
+            console.log(data)
+            if(data.success) {
+                setAllCourses(data.courses)
+                console.log("all courses:", allCourses)
+            } else {
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
+        }
+    }
+
+    const fetchUserData = async () => {
+        try {
+            if(user.publicMetadata.role === "Educator") {
+                setIsEducator(true)
+            }
+            const token = await getToken()
+
+            const {data} = await axios.get(backendUrl + "/api/user/data", {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            })
+
+            if (data.success) {
+                setUserData(data.user)
+            } else {
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
+            
+        }
     }
 
     // Calculating average rating for course
@@ -31,7 +72,7 @@ export const AppContextProvider = ({children}) => {
             totalRating += rating.rating
         })
 
-        return totalRating / course.courseRatings.length
+        return Math.floor( totalRating / course.courseRatings.length)
     }
 
     // calculating chapter duration
@@ -39,6 +80,7 @@ export const AppContextProvider = ({children}) => {
     const calulateChapterTime = (chapter) => {
         let time = 0
         chapter.chapterContent.forEach((lecture) => {
+
             time += lecture.lectureDuration
         })
 
@@ -70,17 +112,30 @@ export const AppContextProvider = ({children}) => {
     }
 
     // Fetch user enrolled courses
-    const fetchUserEnrolledCourses = () => {
-        setEnrolledCourses(dummyCourses)
+    const fetchUserEnrolledCourses = async () => {
+        try {
+            const token = await getToken()
+            const {data} = await axios.get(backendUrl + "/api/user/enrolledCourses", {headers: {
+                Authorization: `Bearer ${token}`
+            }})
+
+            if(data.success) {
+                setEnrolledCourses(data.enrolledCourses.reverse())
+
+            } else{
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
+        }
     }
 
-    const logToken = async () => {
-        console.log(await getToken())
-    }
+    
 
     useEffect(() => {
         if(user) {
-            logToken()
+            fetchUserData()
+            fetchUserEnrolledCourses()
         }
     }, [user])
 
@@ -95,7 +150,8 @@ export const AppContextProvider = ({children}) => {
     const value = {
         currency, allCourses, calculateAverageRating, isEducator, setIsEducator,
         calulateChapterTime, caluclateCourseDuration, calculateNumberOfLectures,
-        enrolledCourses, fetchUserEnrolledCourses
+        enrolledCourses, fetchUserEnrolledCourses, backendUrl, userData, setUserData, getToken,
+        fetchAllCourses
 
     }
 

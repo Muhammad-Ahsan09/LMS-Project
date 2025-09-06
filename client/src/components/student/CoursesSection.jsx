@@ -15,7 +15,7 @@ const CourseSection = () => {
       </p>
 
       <div className='grid grid-cols-auto px-4 md:px-0 md:my-16 my-10 gap-4'>
-        {allCourses.slice(3, 7).map((course, index) => <CourseCard key={index} course={course}/>)}
+        {allCourses.map((course, index) => <CourseCard key={index} course={course}/>)}
       </div>
 
       <Link to={"/course-list"} onClick={() => scrollTo(0,0)}

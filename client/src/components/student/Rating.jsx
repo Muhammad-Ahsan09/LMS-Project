@@ -10,9 +10,9 @@ const Rating = ({initialRating, onRate}) => {
     if(onRate) {
       setRating(onRate)
     }
+
+    setRating(value)
   }
-
-
 
   return (
     <div>

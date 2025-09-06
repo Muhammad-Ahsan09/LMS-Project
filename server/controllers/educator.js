@@ -4,7 +4,7 @@ import pool from "../database.js"
 
 export const updateRoleToEducator = async (req, res) => {
     try {
-        const userId = req.auth.userId
+        const userId = req.auth().userId
 
         await clerkClient.users.updateUserMetadata(userId, {
             publicMetadata: {
@@ -50,7 +50,7 @@ export const addCourse = async (req, res) => {
         VALUES
         ($1, $2, $3, $4, $5, $6, $7) RETURNING id;
         `, [parsedCourseData.courseTitle, parsedCourseData.courseDescription, imageUpload.secure_url,
-            parsedCourseData.coursePrice, parsedCourseData.isPublished, parsedCourseData.discount, parsedCourseData.educatorId])
+            parsedCourseData.coursePrice,  true, parsedCourseData.discount, parsedCourseData.educatorId])
 
         
 
@@ -85,7 +85,7 @@ export const addCourse = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.json({succes: false, message:error.message})
+        res.json({success: false, message:error.message})
     }
 }
 
@@ -153,12 +153,12 @@ export const getEducatorCourses = async (req, res) => {
        
         const courses = await getEducatorCoursesData(req, res, educator)
 
-        res.json({succes: true, courses})
+        res.json({success: true, courses})
 
 
     } catch (error) {
         console.log(error)
-        res.json({succes: false, message:error.message})
+        res.json({success: false, message:error.message})
     }
 }
 
@@ -173,9 +173,11 @@ export const educatorDashboardData = async (req, res) => {
 
         const courseIds = courses.map((course) => course.id)
 
-        result = await pool.query(`
-        SELECT * FROM purchases WHERE courseId = ANY ($1)
+        let result = await pool.query(`
+        SELECT * FROM purchases WHERE "courseId" = ANY ($1)
         `, [courseIds])
+
+        const student_ids = result.rows.map((student) => student.userId)
 
         const purchases = result.rows
 
@@ -184,9 +186,11 @@ export const educatorDashboardData = async (req, res) => {
         const enrolledStudentsData = []
 
         for(const course of courses) {
-            const students = await pool.query(
-                `SELECT "name", "imageUrl" FROM users WHERE id = ANY ($1);`,
-                [course.enrolledStudentsData])
+            result = await pool.query(
+                `SELECT "name", imageurl FROM users WHERE id = ANY ($1);`,
+                [student_ids])
+            
+            const students = result.rows
             
             students.forEach((student) => {
                 enrolledStudentsData.push({
@@ -196,12 +200,12 @@ export const educatorDashboardData = async (req, res) => {
             })
         }
 
-        res.json({succes: true, dashboardData: {
+        res.json({success: true, dashboardData: {
             totalEarnings, enrolledStudentsData, totalCourses
         }})
     } catch (error) {
         console.log(error)
-        res.json({succes: false, message:error.message})
+        res.json({success: false, message:error.message})
     }
 }
 
@@ -210,28 +214,34 @@ export const educatorDashboardData = async (req, res) => {
 export const getEnrolledStudentsData = async (req, res) => {
     try {
         const educator = req.auth().userId
-        const courses = getEducatorCoursesData(req, res, educator)
+        const courses = await getEducatorCoursesData(req, res, educator)
+        console.log(courses)
         const courseIds = courses.map(course => course.id)
 
         const result = await pool.query(`
         SELECT * FROM purchases 
         JOIN users ON purchases."userId" = users.id 
         JOIN courses ON purchases."courseId" = courses.id
-        WHERE "courseId" = ANY($1) AND status = $1;
+        WHERE "courseId" = ANY($1) AND status = $2;
         `, [courseIds, "completed"])
 
         const purchases = result.rows
+        console.log("purchases: ", purchases)
 
         const enrolledStudents = purchases.map((purchase) => ({
-            student: purchase.userId,
+            student: {
+                id: purchase.userId,
+                imageUrl: purchase.imageurl,
+                name: purchase.name
+            },
             courseTitle: purchase.courseTitle,
             purchaseDate: purchase.createdAt
 
         }))
 
-        res.json({succes: true, enrolledStudents})
+        res.json({success: true, enrolledStudents})
     } catch (error) {
         console.log(error)
-        res.json({succes: false, message:error.message})
+        res.json({success: false, message:error.message})
     }
 }
