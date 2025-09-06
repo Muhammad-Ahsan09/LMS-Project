@@ -16,9 +16,7 @@ const app = express()
 await connectCloudinary()
 
 // Middlewares
-app.use(cors({
-    origin
-}))
+app.use(cors())
 app.use(clerkMiddleware())
 
 // Routes
