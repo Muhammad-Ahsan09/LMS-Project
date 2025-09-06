@@ -16,7 +16,9 @@ const app = express()
 await connectCloudinary()
 
 // Middlewares
-app.use(cors())
+app.use(cors({
+    origin: "https://lms-project-gilt-kappa.vercel.app/"
+}))
 app.use(clerkMiddleware())
 
 // Routes
