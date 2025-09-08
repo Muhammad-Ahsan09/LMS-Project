@@ -21,7 +21,7 @@ app.use(clerkMiddleware())
 
 // Routes
 app.get("/", (req, res) => { try { res.send("API Working") } catch (error) { }})
-app.post("/clerk", clerkWebhooks)
+app.post("/clerk", express.json(), clerkWebhooks)
 app.use("/api/educator", express.json(), educatorRouter)
 app.use("/api/course", express.json(),courseRouter)
 app.use("/api/user", express.json(), userRouter)
@@ -32,5 +32,6 @@ app.post("/stripe", express.raw({type: "application/json"}), stripeWebhooks)
 const PORT = process.env.PORT || 8000
 
 app.listen(PORT, async () => {
+    
     console.log(`Server started on port ${PORT}`)
 })

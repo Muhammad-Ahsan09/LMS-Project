@@ -9,6 +9,7 @@ dotenv.config()
 
 export const clerkWebhooks = async (req, res) => {
     try {
+        console.log("inside clerk webhook")
         const whook = new Webhook(process.env.CLERK__WEBHOOK_SECRET)
 
         await whook.verify(JSON.stringify(req.body), {
@@ -17,23 +18,35 @@ export const clerkWebhooks = async (req, res) => {
             "svix-signature": req.headers["svix-signature"]
         })
 
+        console.log("inside clerk webhook 2")
+
+
         const {data, type} = req.body
+
+        console.log("inside clerk webhook 3")
+
 
         console.log(data)
         switch(type){
+
             case "user.created": {
                 const userData = {
                     id: data.id,
-                    email: data.email_addresses[0].email_address,
+                    email: data.email_addresses[0]?.email_address,
                     name: data.first_name + " " + data.last_name,
                     imageUrl: data.image_url
                 }
 
+                console.log(userData)
+                console.log("inside clerk webhook 4")
+
+
                 await pool.query(`INSERT INTO users (id, email, name, imageurl)
                  VALUES ($1, $2, $3, $4 )`, [userData.id, userData.email, userData.name, userData.imageUrl])
+                console.log("inside clerk webhook 5")
                 
-                 res.json({})
-                 break
+                res.json({})
+                break
             }
 
             case "user.updated": {

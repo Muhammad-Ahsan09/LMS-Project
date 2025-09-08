@@ -13,6 +13,7 @@ export const getUserData = async (req, res) => {
         `, [userId])        
 
         const user = result.rows[0]
+        
 
         result = await pool.query(`
         SELECT * FROM is_enrolled_in
